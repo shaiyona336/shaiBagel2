@@ -31,7 +31,6 @@ struct GameObject {
 
 struct Worm : GameObject {
     int health = 100;
-    bool isActive = false;
     float aimAngle = 0.0f;
 
     Worm(float posX, float posY)
@@ -46,10 +45,6 @@ struct Worm : GameObject {
         if (vy == 0) { // Only jump if on ground
             vy = -6.0f;
         }
-    }
-
-    void aim(float angle) {
-        aimAngle = angle;
     }
 };
 
@@ -195,13 +190,11 @@ int main(int argc, char* argv[]) {
     // Create game objects
     Terrain terrain(SCREEN_WIDTH, SCREEN_HEIGHT);
 
+    // Create worms at different positions
     std::vector<Worm> worms;
-    // Create 4 worms at different positions
     worms.emplace_back(100, 100);
     worms.emplace_back(300, 100);
     worms.emplace_back(500, 100);
-    worms.emplace_back(700, 100);
-    worms[0].isActive = true; // First worm is active
 
     std::vector<Projectile> projectiles;
     std::vector<Explosion> explosions;
@@ -209,9 +202,10 @@ int main(int argc, char* argv[]) {
     // Game loop variables
     bool quit = false;
     SDL_Event e;
-    int currentWorm = 0;
-    bool firing = false;
-    int animationStep = 0;
+    int currentWorm = 0;  // Index of the active worm
+    bool isFiring = false;
+    int turnTimer = 0;    // Timer to track turn duration
+    const int TURN_DURATION = 100; // Number of frames per turn
 
     // Main game loop
     while (!quit) {
@@ -222,40 +216,57 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Predefined animation sequence for the demo
-        animationStep++;
+        // Update turn timer
+        turnTimer++;
 
-        // Every 60 frames, active worm will fire
-        if (animationStep % 60 == 0 && !firing) {
-            firing = true;
-            Worm& active = worms[currentWorm];
+        // Handle the active worm
+        Worm& activeWorm = worms[currentWorm];
 
-            // Calculate projectile velocity based on aim angle
-            float projectileSpeed = 8.0f;
-            float projectileVx = cos(active.aimAngle) * projectileSpeed;
-            float projectileVy = sin(active.aimAngle) * projectileSpeed;
+        // Simple AI for demonstration (moves randomly and fires)
+        if (turnTimer % 20 == 0) {
+            // Randomly move left, right or jump
+            int action = rand() % 3;
+            if (action == 0) {
+                activeWorm.move(-10.0f);
+            } else if (action == 1) {
+                activeWorm.move(10.0f);
+            } else {
+                activeWorm.jump();
+            }
+        }
 
-            // Create a projectile
+        // Change aim angle periodically
+        if (turnTimer % 10 == 0) {
+            activeWorm.aimAngle += 0.1f;
+            if (activeWorm.aimAngle > 2*M_PI) activeWorm.aimAngle = 0;
+        }
+
+        // Fire a projectile near the end of the turn
+        if (turnTimer == TURN_DURATION - 20 && !isFiring) {
+            isFiring = true;
+
+            // Calculate projectile velocity from aim angle
+            float power = 7.0f;
+            float projVelX = cos(activeWorm.aimAngle) * power;
+            float projVelY = sin(activeWorm.aimAngle) * power;
+
+            // Create projectile
             projectiles.emplace_back(
-                active.x + WORM_SIZE / 2,
-                active.y + WORM_SIZE / 2,
-                projectileVx,
-                projectileVy
+                activeWorm.x + WORM_SIZE/2,
+                activeWorm.y + WORM_SIZE/2,
+                projVelX,
+                projVelY
             );
         }
 
-        // Every 180 frames, switch to next worm
-        if (animationStep % 180 == 0) {
-            worms[currentWorm].isActive = false;
+        // Change to next worm when turn is over
+        if (turnTimer >= TURN_DURATION) {
             currentWorm = (currentWorm + 1) % worms.size();
-            worms[currentWorm].isActive = true;
-            firing = false;
-
-            // Set a new random aim angle for variety
-            worms[currentWorm].aimAngle = static_cast<float>(rand() % 628) / 100.0f; // 0 to 2π
+            turnTimer = 0;
+            isFiring = false;
         }
 
-        // Update worms
+        // Update all worms
         for (auto& worm : worms) {
             // Apply gravity
             worm.vy += GRAVITY;
@@ -264,7 +275,7 @@ int main(int argc, char* argv[]) {
             worm.y += worm.vy;
             worm.updateRect();
 
-            // Check collision with terrain
+            // Check terrain collision
             if (terrain.checkCollision(worm.rect)) {
                 // Move back up until not colliding
                 while (terrain.checkCollision(worm.rect)) {
@@ -273,73 +284,48 @@ int main(int argc, char* argv[]) {
                 }
                 worm.vy = 0;
             }
-
-            // Randomly move active worm
-            if (worm.isActive && animationStep % 10 == 0) {
-                int randomMove = rand() % 3; // 0: left, 1: right, 2: jump
-                switch (randomMove) {
-                    case 0:
-                        worm.move(-2.0f);
-                        break;
-                    case 1:
-                        worm.move(2.0f);
-                        break;
-                    case 2:
-                        worm.jump();
-                        break;
-                }
-            }
         }
 
         // Update projectiles
         for (auto it = projectiles.begin(); it != projectiles.end();) {
-            auto& projectile = *it;
+            auto& proj = *it;
 
-            // Apply gravity and wind
-            projectile.vy += GRAVITY;
-            projectile.vx += WIND;
+            // Apply physics
+            proj.vy += GRAVITY;
+            proj.vx += WIND;
 
             // Move projectile
-            projectile.x += projectile.vx;
-            projectile.y += projectile.vy;
-            projectile.updateRect();
+            proj.x += proj.vx;
+            proj.y += proj.vy;
+            proj.updateRect();
 
-            // Check if projectile is out of bounds
-            if (projectile.x < 0 || projectile.x > SCREEN_WIDTH ||
-                projectile.y < 0 || projectile.y > SCREEN_HEIGHT) {
+            // Check if out of bounds
+            if (proj.x < 0 || proj.x > SCREEN_WIDTH || proj.y < 0 || proj.y > SCREEN_HEIGHT) {
                 it = projectiles.erase(it);
                 continue;
             }
 
-            // Check collision with terrain
-            if (terrain.checkCollision(projectile.rect)) {
-                // Create explosion at projectile position
-                explosions.emplace_back(
-                    projectile.x,
-                    projectile.y,
-                    EXPLOSION_MAX_SIZE / 2
-                );
+            // Check terrain collision
+            if (terrain.checkCollision(proj.rect)) {
+                // Create explosion
+                explosions.emplace_back(proj.x, proj.y, 30);
 
                 // Destroy terrain
-                terrain.destroy(
-                    static_cast<int>(projectile.x),
-                    static_cast<int>(projectile.y),
-                    EXPLOSION_MAX_SIZE / 2
-                );
+                terrain.destroy(proj.x, proj.y, 30);
 
-                // Check if explosion hit any worms
+                // Check if explosion hits worms
                 for (auto& worm : worms) {
-                    float dx = worm.x + WORM_SIZE / 2 - projectile.x;
-                    float dy = worm.y + WORM_SIZE / 2 - projectile.y;
-                    float distance = sqrt(dx * dx + dy * dy);
+                    float dx = worm.x + WORM_SIZE/2 - proj.x;
+                    float dy = worm.y + WORM_SIZE/2 - proj.y;
+                    float distance = sqrt(dx*dx + dy*dy);
 
-                    if (distance < EXPLOSION_MAX_SIZE) {
-                        // Damage falls off with distance
-                        float damage = 30 * (1.0f - distance / EXPLOSION_MAX_SIZE);
-                        worm.health -= static_cast<int>(damage);
+                    if (distance < 40) {
+                        // Apply damage based on distance
+                        float damageScale = 1.0f - (distance / 40.0f);
+                        worm.health -= static_cast<int>(30 * damageScale);
 
                         // Apply knockback
-                        float knockback = 5.0f * (1.0f - distance / EXPLOSION_MAX_SIZE);
+                        float knockback = 5.0f * damageScale;
                         worm.vx += (dx / distance) * knockback;
                         worm.vy += (dy / distance) * knockback - 2.0f; // Extra upward boost
                     }
@@ -368,16 +354,18 @@ int main(int argc, char* argv[]) {
         terrain.render(renderer);
 
         // Render worms
-        for (const auto& worm : worms) {
-            // Render worm body
-            if (worm.isActive) {
+        for (int i = 0; i < worms.size(); i++) {
+            const auto& worm = worms[i];
+
+            // Draw worm body
+            if (i == currentWorm) {
                 SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // Active worm is red
             } else {
                 SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // Inactive worms are green
             }
             SDL_RenderFillRect(renderer, &worm.rect);
 
-            // Render health bar
+            // Draw health bar
             SDL_FRect healthBar = {
                 worm.x,
                 worm.y - 10,
@@ -389,23 +377,23 @@ int main(int argc, char* argv[]) {
                                     0, 255);
             SDL_RenderFillRect(renderer, &healthBar);
 
-            // Render aim line for active worm
-            if (worm.isActive) {
+            // Draw aim line for active worm
+            if (i == currentWorm) {
                 SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
                 float lineLength = 30.0f;
-                float endX = worm.x + WORM_SIZE / 2 + cos(worm.aimAngle) * lineLength;
-                float endY = worm.y + WORM_SIZE / 2 + sin(worm.aimAngle) * lineLength;
+                float endX = worm.x + WORM_SIZE/2 + cos(worm.aimAngle) * lineLength;
+                float endY = worm.y + WORM_SIZE/2 + sin(worm.aimAngle) * lineLength;
                 SDL_RenderLine(renderer,
-                                worm.x + WORM_SIZE / 2,
-                                worm.y + WORM_SIZE / 2,
-                                endX, endY);
+                              worm.x + WORM_SIZE/2,
+                              worm.y + WORM_SIZE/2,
+                              endX, endY);
             }
         }
 
         // Render projectiles
         SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255); // Yellow
-        for (const auto& projectile : projectiles) {
-            SDL_RenderFillRect(renderer, &projectile.rect);
+        for (const auto& proj : projectiles) {
+            SDL_RenderFillRect(renderer, &proj.rect);
         }
 
         // Render explosions
@@ -413,26 +401,25 @@ int main(int argc, char* argv[]) {
             // Gradient from red to yellow
             float progress = static_cast<float>(explosion.currentFrame) / explosion.duration;
             SDL_SetRenderDrawColor(renderer,
-                                    255,
-                                    static_cast<Uint8>(255 * progress),
-                                    0, 255);
+                                   255,
+                                   static_cast<Uint8>(255 * progress),
+                                   0, 255);
             SDL_RenderFillRect(renderer, &explosion.rect);
         }
 
-        // Render UI text (would use SDL_ttf in a real implementation)
-        // For this demo, we'll just use colored rectangles to indicate turn info
+        // Render turn indicator
         SDL_FRect turnIndicator = {10, 10, 100, 20};
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderFillRect(renderer, &turnIndicator);
 
-        // Present rendered content
+        // Present renderer
         SDL_RenderPresent(renderer);
 
         // Cap frame rate
         SDL_Delay(16); // ~60 FPS
     }
 
-    // Clean up resources
+    // Cleanup
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();

@@ -130,7 +130,7 @@ void HealthSystem::update(float deltaTime) {
 }
 
 // Entity creation functions
-bagel::Entity createPlayer(float x, float y, bool isActive) {
+bagel::Entity createPlayer(float x, float y) {
     bagel::Entity entity = bagel::Entity::create();
 
     // Add required components
@@ -143,24 +143,17 @@ bagel::Entity createPlayer(float x, float y, bool isActive) {
     physics.weight = 1.0f;
     physics.isAffectedByGravity = true;
 
-    // Set active player status if needed
-    if (isActive) {
-        input.isAiming = true;
-    }
-
     // Add components to the entity
     entity.addAll(position, health, physics, input);
 
-    // Weapon is optional and can be added separately if needed
-    if (isActive) {
-        Weapon weapon{Weapon::Type::BAZOOKA, entity.entity(), 10};
-        entity.add(weapon);
-    }
+    // Add a default weapon
+    Weapon weapon{Weapon::Kind::BAZOOKA, 10};
+    entity.add(weapon);
 
     return entity;
 }
 
-bagel::Entity createProjectile(float x, float y, float velX, float velY, Weapon::Type weaponType, bagel::ent_type owner) {
+bagel::Entity createProjectile(float x, float y, float velX, float velY, Weapon::Kind weaponKind, bagel::ent_type owner) { // Owner param kept for reference
     bagel::Entity entity = bagel::Entity::create();
 
     // Add required components
@@ -189,12 +182,12 @@ bagel::Entity createTerrain(float x, float y) {
     return entity;
 }
 
-bagel::Entity createCollectable(float x, float y, Collectable::Type type, int value) {
+bagel::Entity createCollectable(float x, float y, Collectable::Kind kind, int value) {
     bagel::Entity entity = bagel::Entity::create();
 
     // Add required components
     Position position{x, y};
-    Collectable collectable{type, value};
+    Collectable collectable{kind, value};
 
     // Add components to the entity
     entity.addAll(position, collectable);
@@ -202,30 +195,17 @@ bagel::Entity createCollectable(float x, float y, Collectable::Type type, int va
     return entity;
 }
 
-bagel::Entity createExplosion(float x, float y, Explosion::Type type) {
+bagel::Entity createExplosion(float x, float y, Explosion::Size size) {
     bagel::Entity entity = bagel::Entity::create();
 
     // Add required components
     Position position{x, y};
-    Explosion explosion{type};
+    Explosion explosion{size};
     Physics physics{};
 
     // Explosions don't move but need physics for collision detection
     physics.isAffectedByGravity = false;
     physics.weight = 0.0f;
-
-    // Set explosion properties based on type
-    switch (type) {
-        case Explosion::Type::SMALL:
-            explosion.radius = 30.0f;
-            break;
-        case Explosion::Type::MEDIUM:
-            explosion.radius = 50.0f;
-            break;
-        case Explosion::Type::LARGE:
-            explosion.radius = 80.0f;
-            break;
-    }
 
     // Add components to the entity
     entity.addAll(position, explosion, physics);

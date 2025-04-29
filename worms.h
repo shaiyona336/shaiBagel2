@@ -1,6 +1,6 @@
 /**
  * @file worms.h
- * @brief A Worms-like game implementation using ECS architecture
+ * @brief A simplified Worms-like game implementation using ECS architecture
  *
  * This module implements a simplified version of the Worms game using the Entity Component System
  * architecture. The game features players (worms) that can move, use weapons, and destroy terrain.
@@ -40,20 +40,17 @@ struct Health {
  * @brief Component for storing weapon information
  *
  * This is a "sparse" component as specified in the design document.
- * It stores information about a weapon, including its type, the entity holding it,
+ * It stores information about a weapon, including its kind, the entity holding it,
  * and the number of ammunition available.
  */
 struct Weapon {
-    enum class Type {
+    enum class Kind {
         BAZOOKA,
         GRENADE,
-        SHOTGUN,
-        AIR_STRIKE,
-        BASEBALL_BAT
+        SHOTGUN
     };
 
-    Type type = Type::BAZOOKA;
-    bagel::ent_type owner = {-1}; // Entity ID of the owner
+    Kind kind = Kind::BAZOOKA;
     int ammo = 10;             // Ammunition count
 };
 
@@ -79,15 +76,13 @@ struct Physics {
  * It describes how to render an explosion effect on the screen.
  */
 struct Explosion {
-    enum class Type {
-        SMALL,
-        MEDIUM,
-        LARGE
+    enum class Size {
+        SMALL,  // For grenades
+        MEDIUM, // For shotgun
+        LARGE   // For bazooka
     };
 
-    Type type = Type::MEDIUM;
-    float radius = 50.0f;
-    int duration = 30; // In frames
+    Size size = Size::MEDIUM;
     int currentFrame = 0;
 };
 
@@ -96,16 +91,14 @@ struct Explosion {
  *
  * This is a "sparse" component as specified in the design document.
  * It stores information about player input for controlling entities.
+ * Simplified version that focuses on the core movement and aiming.
  */
 struct Input {
-    bool moveLeft = false;
-    bool moveRight = false;
+    float moveDirection = 0.0f; // -1.0 for left, 1.0 for right
     bool jump = false;
     bool fire = false;
     float aimAngle = 0.0f;
-    bool isAiming = false;
-    bool weaponSwitch = false;
-    int selectedWeaponIndex = 0;
+    int selectedWeapon = 0; // Index of weapon in player's inventory
 };
 
 /**
@@ -114,13 +107,13 @@ struct Input {
  * Represents an item that can be collected by players.
  */
 struct Collectable {
-    enum class Type {
+    enum class Kind {
         HEALTH,
         AMMO,
         WEAPON
     };
 
-    Type type = Type::HEALTH;
+    Kind kind = Kind::HEALTH;
     int value = 25; // Health/ammo amount or weapon ID
 };
 
@@ -214,10 +207,9 @@ private:
  *
  * @param x Initial X position
  * @param y Initial Y position
- * @param isActive Whether this player starts as the active player
  * @return bagel::Entity The created player entity
  */
-bagel::Entity createPlayer(float x, float y, bool isActive = false);
+bagel::Entity createPlayer(float x, float y);
 
 /**
  * @brief Creates a projectile entity
@@ -226,11 +218,11 @@ bagel::Entity createPlayer(float x, float y, bool isActive = false);
  * @param y Initial Y position
  * @param velX Initial X velocity
  * @param velY Initial Y velocity
- * @param weaponType Type of weapon that fired this projectile
+ * @param weaponKind Kind of weapon that fired this projectile
  * @param owner Entity that fired this projectile
  * @return bagel::Entity The created projectile entity
  */
-bagel::Entity createProjectile(float x, float y, float velX, float velY, Weapon::Type weaponType, bagel::ent_type owner);
+bagel::Entity createProjectile(float x, float y, float velX, float velY, Weapon::Kind weaponKind, bagel::ent_type owner = {-1});
 
 /**
  * @brief Creates a terrain surface entity
@@ -246,20 +238,20 @@ bagel::Entity createTerrain(float x, float y);
  *
  * @param x X position
  * @param y Y position
- * @param type Type of collectable
+ * @param kind Kind of collectable
  * @param value Value associated with the collectable
  * @return bagel::Entity The created collectable entity
  */
-bagel::Entity createCollectable(float x, float y, Collectable::Type type, int value);
+bagel::Entity createCollectable(float x, float y, Collectable::Kind kind, int value);
 
 /**
  * @brief Creates an explosion entity
  *
  * @param x X position
  * @param y Y position
- * @param type Type/size of explosion
+ * @param size Size of explosion
  * @return bagel::Entity The created explosion entity
  */
-bagel::Entity createExplosion(float x, float y, Explosion::Type type);
+bagel::Entity createExplosion(float x, float y, Explosion::Size size);
 
 } // namespace worms
