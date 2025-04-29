@@ -67,27 +67,6 @@ void WeaponSystem::update(float deltaTime) {
     }
 }
 
-// ExplosionSystem implementation
-bagel::Mask ExplosionSystem::getMask() {
-    bagel::MaskBuilder builder;
-    return builder
-        .set<Explosion>()
-        .set<Position>()
-        .build();
-}
-
-void ExplosionSystem::update(float deltaTime) {
-    bagel::Mask mask = getMask();
-
-    // Iterate through all entities that have Explosion and Position components
-    for (bagel::ent_type entity = {0}; entity.id <= bagel::World::maxId().id; ++entity.id) {
-        if (bagel::World::mask(entity).test(mask)) {
-            // Empty loop body as per the assignment requirements
-            // In a real implementation, we would animate explosions and apply damage here
-        }
-    }
-}
-
 // InputSystem implementation
 bagel::Mask InputSystem::getMask() {
     bagel::MaskBuilder builder;
@@ -191,24 +170,6 @@ bagel::Entity createCollectable(float x, float y, Collectable::Kind kind, int va
 
     // Add components to the entity
     entity.addAll(position, collectable);
-
-    return entity;
-}
-
-bagel::Entity createExplosion(float x, float y, Explosion::Size size) {
-    bagel::Entity entity = bagel::Entity::create();
-
-    // Add required components
-    Position position{x, y};
-    Explosion explosion{size};
-    Physics physics{};
-
-    // Explosions don't move but need physics for collision detection
-    physics.isAffectedByGravity = false;
-    physics.weight = 0.0f;
-
-    // Add components to the entity
-    entity.addAll(position, explosion, physics);
 
     return entity;
 }

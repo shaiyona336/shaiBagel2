@@ -70,23 +70,6 @@ struct Physics {
 };
 
 /**
- * @brief Component for storing explosion information
- *
- * This is a "sparse" component as specified in the design document.
- * It describes how to render an explosion effect on the screen.
- */
-struct Explosion {
-    enum class Size {
-        SMALL,  // For grenades
-        MEDIUM, // For shotgun
-        LARGE   // For bazooka
-    };
-
-    Size size = Size::MEDIUM;
-    int currentFrame = 0;
-};
-
-/**
  * @brief Component for handling input
  *
  * This is a "sparse" component as specified in the design document.
@@ -153,20 +136,6 @@ private:
  * This system manages weapon selection, firing, and ammunition.
  */
 class WeaponSystem {
-public:
-    static void update(float deltaTime);
-
-private:
-    static bagel::Mask getMask();
-};
-
-/**
- * @brief System for processing explosions
- *
- * This system handles the lifecycle of explosions, including
- * their creation, animation, and destruction.
- */
-class ExplosionSystem {
 public:
     static void update(float deltaTime);
 
@@ -243,15 +212,5 @@ bagel::Entity createTerrain(float x, float y);
  * @return bagel::Entity The created collectable entity
  */
 bagel::Entity createCollectable(float x, float y, Collectable::Kind kind, int value);
-
-/**
- * @brief Creates an explosion entity
- *
- * @param x X position
- * @param y Y position
- * @param size Size of explosion
- * @return bagel::Entity The created explosion entity
- */
-bagel::Entity createExplosion(float x, float y, Explosion::Size size);
 
 } // namespace worms
