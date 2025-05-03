@@ -1,216 +1,226 @@
 /**
  * @file worms.h
  * @brief A simplified Worms-like game implementation using ECS architecture
- *
- * This module implements a simplified version of the Worms game using the Entity Component System
- * architecture. The game features players (worms) that can move, use weapons, and destroy terrain.
- * Physics simulation is applied to all dynamic objects, and collisions are handled accordingly.
  */
+ #pragma once
 
-#pragma once
+ #include <vector>
+ #include <string>
+ #include "bagel.h"
 
-#include <vector>
-#include <string>
-#include "bagel.h"
+ constexpr float TIME_TO_LIVE = 3.0f;
+ constexpr int STARTING_HEALTH = 100;
+ constexpr float DEFAULT_WEIGHT = 1.0f;
+ constexpr int DEFAULT_AMMO = 10;
+ constexpr int DEFAULT_PACK_VALUE = 25;
 
-namespace worms {
+ namespace worms {
 
-/**
- * @brief Component for storing position information
- *
- * This is a "dense" component as specified in the design document.
- * It stores the 2D position of an entity in the game world.
- */
-struct Position {
-    float x = 0.0f;
-    float y = 0.0f;
-};
+ //components
 
-/**
- * @brief Component for storing health information
- *
- * This is a "dense" component as specified in the design document.
- * It stores the health value of a player entity.
- */
-struct Health {
-    int value = 100; // Default health value
-};
+ /**
+  * @brief component for storing position information
+  * dense component storing x,y coordinates of an entity
+  */
+ struct Position {
+     float x = 0.0f;
+     float y = 0.0f;
+ };
 
-/**
- * @brief Component for storing weapon information
- *
- * This is a "sparse" component as specified in the design document.
- * It stores information about a weapon, including its kind, the entity holding it,
- * and the number of ammunition available.
- */
-struct Weapon {
-    enum class Kind {
-        BAZOOKA,
-        GRENADE,
-        SHOTGUN
-    };
+ /**
+  * @brief component for storing health information
+  * dense component to store health of diffrent players
+  */
+ struct Health {
+     int value = STARTING_HEALTH;
+ };
 
-    Kind kind = Kind::BAZOOKA;
-    int ammo = 10;             // Ammunition count
-};
+ /**
+  * @brief component for storing weapon information
+  * sparse component for weapon, store type and ammo
+  */
+ struct Weapon {
+     enum class Kind {
+         BAZOOKA,
+         GRENADE,
+         SHOTGUN
+     };
 
-/**
- * @brief Component for storing physics information
- *
- * This is a "dense" component as specified in the design document.
- * It stores physics-related properties like acceleration, velocity, and weight.
- */
-struct Physics {
-    float accelX = 0.0f;
-    float accelY = 0.0f;
-    float velX = 0.0f;
-    float velY = 0.0f;
-    float weight = 1.0f;
-    bool isAffectedByGravity = true;
-};
+     Kind kind = Kind::BAZOOKA;
+     int ammo = DEFAULT_AMMO;
+ };
 
-/**
- * @brief Component for handling input
- *
- * This is a "sparse" component as specified in the design document.
- * It stores information about player input for controlling entities.
- * Simplified version that focuses on the core movement and aiming.
- */
-struct Input {
-    float moveDirection = 0.0f; // -1.0 for left, 1.0 for right
-    bool jump = false;
-    bool fire = false;
-    float aimAngle = 0.0f;
-    int selectedWeapon = 0; // Index of weapon in player's inventory
-};
+ /**
+  * @brief component for storing physics information
+  * dense component for storing physics information of entitys
+  * store acceleration, velocity, weight and if affected by gravity
+  */
+ struct Physics {
+     float accelX = 0.0f;
+     float accelY = 0.0f;
+     float velX = 0.0f;
+     float velY = 0.0f;
+     float weight = DEFAULT_WEIGHT;
+     bool isAffectedByGravity = true;
+ };
 
-/**
- * @brief Component for terrain collectable items
- *
- * Represents an item that can be collected by players.
- */
-struct Collectable {
-    enum class Kind {
-        HEALTH,
-        AMMO,
-        WEAPON
-    };
+ /**
+  * @brief component for storing projectile data information
+  * sparse component for storing projectile data for projectiles
+  * store weapon kind and time for explosion (if grenade for example)
+  */
+ struct ProjectileData {
+     Weapon::Kind kind;
+     float timeToLive = -1.0f;
 
-    Kind kind = Kind::HEALTH;
-    int value = 25; // Health/ammo amount or weapon ID
-};
+     ProjectileData(Weapon::Kind k) : kind(k) {
+         if (k == Weapon::Kind::GRENADE) {
+             timeToLive = TIME_TO_LIVE;
+         }
+     }
+ };
 
-// Define systems using bagel ECS framework
+ /**
+  * @brief component for input
+  * sparse component for storing current state of input on entity
+  * store move direction, is jump, is fire, aim angle
+  */
+ struct Input {
+     float moveDirection = 0.0f; //-1.0 left to 1.0 right
+     bool jump = false;
+     bool fire = false;
+     float aimAngle = 0.0f;
+ };
 
-/**
- * @brief System for handling collisions
- *
- * This system detects and handles collisions between entities,
- * affecting health, position, and potentially creating explosions.
- */
-class CollisionSystem {
-public:
-    static void update(float deltaTime);
+ /**
+  * @brief component for collectable items
+  * Represents an item that can be collected by players.
+  * sparse component for storing information on collectable items
+  * store kind of item to pick, and value if it is health or ammo
+  */
+ struct Collectable {
+     enum class Type {
+         HEALTH,
+         AMMO,
+         WEAPON
+     };
 
-private:
-    static bagel::Mask getMask();
-};
+     Type kind = Type::HEALTH;
+     int value = DEFAULT_PACK_VALUE;
+ };
 
-/**
- * @brief System for simulating physics
- *
- * This system updates positions based on physics properties,
- * applying forces, gravity, and other physical constraints.
- */
-class PhysicsSystem {
-public:
-    static void update(float deltaTime);
+ //systems
 
-private:
-    static bagel::Mask getMask();
-};
+ /**
+  * @brief system for handling collisions
+  * affect health, position
+  */
+ class CollisionSystem {
+ public:
+     static void update(float deltaTime);
 
-/**
- * @brief System for handling weapons
- *
- * This system manages weapon selection, firing, and ammunition.
- */
-class WeaponSystem {
-public:
-    static void update(float deltaTime);
+ private:
+     static bagel::Mask getMask();
+ };
 
-private:
-    static bagel::Mask getMask();
-};
+ /**
+  * @brief system for handling physics
+  * update positions of entities based on their physics properties
+  */
+ class PhysicsSystem {
+ public:
+     static void update(float deltaTime);
 
-/**
- * @brief System for processing player input
- *
- * This system reads input and updates relevant components accordingly.
- */
-class InputSystem {
-public:
-    static void update(float deltaTime);
+ private:
+     static bagel::Mask getMask();
+ };
 
-private:
-    static bagel::Mask getMask();
-};
+ /**
+  * @brief system for handling weapons
+  * based on input and weapon, handling ammo, fire projectiles, weapon selection
+  */
+ class WeaponSystem {
+ public:
+     static void update(float deltaTime);
 
-/**
- * @brief System for managing health
- *
- * This system handles health changes, death conditions, and related effects.
- */
-class HealthSystem {
-public:
-    static void update(float deltaTime);
+ private:
+     static bagel::Mask getMask();
+ };
 
-private:
-    static bagel::Mask getMask();
-};
+ /**
+  * @brief system for handling projectiles
+  * update projectile timing, triggering appropriate effects based on weapon kind
+  */
+ class ProjectileSystem {
+ public:
+     static void update(float deltaTime);
 
-// Entity creation functions
+ private:
+     static bagel::Mask getMask();
+ };
 
-/**
- * @brief Creates a player entity
- *
- * @param x Initial X position
- * @param y Initial Y position
- * @return bagel::Entity The created player entity
- */
-bagel::Entity createPlayer(float x, float y);
+ /**
+  * @brief system for handling player input
+  * based on input, update relevant components
+  */
+ class InputSystem {
+ public:
+     static void update(float deltaTime);
 
-/**
- * @brief Creates a projectile entity
- *
- * @param x Initial X position
- * @param y Initial Y position
- * @param velX Initial X velocity
- * @param velY Initial Y velocity
- * @param weaponKind Kind of weapon that fired this projectile
- * @param owner Entity that fired this projectile
- * @return bagel::Entity The created projectile entity
- */
-bagel::Entity createProjectile(float x, float y, float velX, float velY, Weapon::Kind weaponKind, bagel::ent_type owner = {-1});
+ private:
+     static bagel::Mask getMask();
+ };
 
-/**
- * @brief Creates a terrain surface entity
- *
- * @param x X position
- * @param y Y position
- * @return bagel::Entity The created terrain entity
- */
-bagel::Entity createTerrain(float x, float y);
+ /**
+  * @brief system for managing health
+  * based on health handling scenrios in the game like if health < 0 delete entity
+  * another example health < 40 turn worm to red, or after health pack turn worm to green for a while
+  */
+ class HealthSystem {
+ public:
+     static void update(float deltaTime);
 
-/**
- * @brief Creates a collectable item entity
- *
- * @param x X position
- * @param y Y position
- * @param kind Kind of collectable
- * @param value Value associated with the collectable
- * @return bagel::Entity The created collectable entity
- */
-bagel::Entity createCollectable(float x, float y, Collectable::Kind kind, int value);
+ private:
+     static bagel::Mask getMask();
+ };
 
-} // namespace worms
+ //entities
+
+ /**
+  * @brief creates a player entity
+  * @param x initial x position
+  * @param y initial y position
+  * @return bagel::Entity the created player entity
+  */
+ bagel::Entity createPlayer(float x, float y);
+
+ /**
+  * @brief creates a projectile entity
+  * @param x initial x position
+  * @param y initial y position
+  * @param velX initial x velocity
+  * @param velY initial y velocity
+  * @param weaponKind weapon that fired this projectile
+  */
+ bagel::Entity createProjectile(float x, float y, float velX, float velY, Weapon::Kind weaponKind);
+
+ /**
+  * @brief creates a terrain surface entity
+  * @param x x position
+  * @param y y position
+  * @return bagel::Entity the created terrain entity
+  */
+ bagel::Entity createTerrain(float x, float y);
+
+ /**
+  * @brief creates a collectable item entity
+  *
+  * @param x x position
+  * @param y y position
+  * @param type type of collectable (health/ammo/weapon)
+  * @param value value of collectable (amount health/ammo or kind of weapon)
+  * @return bagel::Entity the created collectable entity
+  */
+ bagel::Entity createCollectable(float x, float y, Collectable::Type type, int value);
+
+ }

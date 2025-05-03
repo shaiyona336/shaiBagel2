@@ -3,22 +3,25 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+using namespace std;
 
-// Constants
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 600;
 const float GRAVITY = 0.2f;
 const int TERRAIN_SIZE = 10;
 const int WORM_SIZE = 30;
+const int TURN_DURATION = 200; //how much frames each turn
+const int LEFT_MOVE_LENGTH = -10.0f;
+const int RIGHT_MOVE_LENGTH = 10.0f;
 
-// Simple structs for our demo (not using the ECS system for this demo)
+
+
 struct GameObject {
-    float x, y;         // Position
-    float vx = 0, vy = 0; // Velocity
-    SDL_FRect rect;     // Rendering rectangle
+    float x, y;
+    float vx = 0, vy = 0;
+    SDL_FRect rect;
 
-    GameObject(float posX, float posY, float width, float height)
-        : x(posX), y(posY), rect{posX, posY, width, height} {}
+    GameObject(float posX, float posY, float width, float height): x(posX), y(posY), rect{posX, posY, width, height} {}
 
     void updateRect() {
         rect.x = x;
@@ -38,7 +41,7 @@ struct Worm : GameObject {
     }
 
     void jump() {
-        if (vy == 0) { // Only jump if on ground
+        if (vy == 0) { //can only jump if worm on ground
             vy = -6.0f;
         }
     }
@@ -113,84 +116,61 @@ struct Terrain {
 };
 
 int main(int argc, char* argv[]) {
-    // Initialize SDL
+    Terrain terrain(SCREEN_WIDTH, SCREEN_HEIGHT);
+    std::vector<Worm> worms;
+    bool quit = false;
+    SDL_Event e;
+    int currentWorm = 0;  //current active worm
+    int turnTimer = 0;    //track how much time left for current turn
+
     if (!SDL_Init(SDL_INIT_VIDEO)) {
-        std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
+		cout << SDL_GetError() << endl;
         return -1;
     }
 
-    // Create window and renderer
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
 
-    if (!SDL_CreateWindowAndRenderer("Worms Game Demo", SCREEN_WIDTH, SCREEN_HEIGHT, 0, &window, &renderer)) {
-        std::cerr << "Window or renderer could not be created! SDL_Error: " << SDL_GetError() << std::endl;
-        SDL_Quit();
+    if (!SDL_CreateWindowAndRenderer("Worms", SCREEN_WIDTH, SCREEN_HEIGHT, 0, &window, &renderer)) {
+        cout << SDL_GetError() << endl;
         return -1;
     }
-
-    // Create game objects
-    Terrain terrain(SCREEN_WIDTH, SCREEN_HEIGHT);
-
-    // Create worms at different positions
-    std::vector<Worm> worms;
+    //create worms
     worms.emplace_back(100, 100);
     worms.emplace_back(300, 100);
     worms.emplace_back(500, 100);
 
-    // Game loop variables
-    bool quit = false;
-    SDL_Event e;
-    int currentWorm = 0;  // Index of the active worm
-    int turnTimer = 0;    // Timer to track turn duration
-    const int TURN_DURATION = 100; // Number of frames per turn
-
-    // Main game loop
-    while (!quit) {
-        // Handle events
-        while (SDL_PollEvent(&e) != 0) {
-            if (e.type == SDL_EVENT_QUIT) {
-                quit = true;
-            }
-        }
-
+    while (true) {
         // Update turn timer
         turnTimer++;
-
         // Handle the active worm
         Worm& activeWorm = worms[currentWorm];
-
-        // Simple AI for demonstration (moves randomly and jumps)
-        if (turnTimer % 20 == 0) {
-            // Randomly move left, right or jump
+        //for simulation, randomally make worm do one of three moves, move right, move left or jump
+        if (turnTimer % (TURN_DURATION/10) == 0) {
             int action = rand() % 3;
             if (action == 0) {
-                activeWorm.move(-10.0f);
+                activeWorm.move(LEFT_MOVE_LENGTH);
             } else if (action == 1) {
-                activeWorm.move(10.0f);
+                activeWorm.move(RIGHT_MOVE_LENGTH);
             } else {
                 activeWorm.jump();
             }
         }
-
-        // Change to next worm when turn is over
+        //switch to next worm if turn duration passed
         if (turnTimer >= TURN_DURATION) {
             currentWorm = (currentWorm + 1) % worms.size();
             turnTimer = 0;
         }
 
-        // Update all worms
         for (auto& worm : worms) {
-            // Apply gravity
+            //gravity
             worm.vy += GRAVITY;
-
-            // Move worm
+            //move worm in y
             worm.y += worm.vy;
             worm.updateRect();
 
-            // Check terrain collision
             if (terrain.checkCollision(worm.rect)) {
-                // Move back up until not colliding
+                //while worm collide with terrain, move worm up
                 while (terrain.checkCollision(worm.rect)) {
                     worm.y -= 1.0f;
                     worm.updateRect();
@@ -199,54 +179,50 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Clear screen
+        //clear screen and draw again with updates
         SDL_SetRenderDrawColor(renderer, 135, 206, 235, 255); // Sky blue
         SDL_RenderClear(renderer);
-
-        // Render terrain
+        //draw terrain
         terrain.render(renderer);
-
-        // Render worms
+        //draw worms
         for (int i = 0; i < worms.size(); i++) {
             const auto& worm = worms[i];
-
-            // Draw worm body
-            if (i == currentWorm) {
+            if (i == currentWorm) { //the worm that it his is turn need to paint diffrent color to distinguish
                 SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // Active worm is red
             } else {
                 SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // Inactive worms are green
             }
             SDL_RenderFillRect(renderer, &worm.rect);
 
-            // Draw health bar
-            SDL_FRect healthBar = {
-                worm.x,
-                worm.y - 10,
-                WORM_SIZE * (worm.health / 100.0f),
-                5
-            };
-            SDL_SetRenderDrawColor(renderer, 255,
-                                    static_cast<Uint8>(worm.health * 2.55f),
-                                    0, 255);
-            SDL_RenderFillRect(renderer, &healthBar);
+            // // Draw health bar
+            // SDL_FRect healthBar = {
+            //     worm.x,
+            //     worm.y - 10,
+            //     WORM_SIZE * (worm.health / 100.0f),
+            //     5
+            // };
+            // SDL_SetRenderDrawColor(renderer, 255,
+            //                         static_cast<Uint8>(worm.health * 2.55f),
+            //                         0, 255);
+            // SDL_RenderFillRect(renderer, &healthBar);
         }
 
         // Render turn indicator
-        SDL_FRect turnIndicator = {10, 10, 100, 20};
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        SDL_RenderFillRect(renderer, &turnIndicator);
+        // SDL_FRect turnIndicator = {10, 10, 100, 20};
+        // SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        // SDL_RenderFillRect(renderer, &turnIndicator);
 
         // Present renderer
         SDL_RenderPresent(renderer);
 
         // Cap frame rate
-        SDL_Delay(16); // ~60 FPS
+        SDL_Delay(10); // ~60 FPS
     }
 
-    // Cleanup
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+
+    // SDL_DestroyRenderer(renderer);
+    // SDL_DestroyWindow(window);
+    // SDL_Quit();
 
     return 0;
 }
