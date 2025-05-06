@@ -133,7 +133,6 @@ bagel::Entity createProjectile(float x, float y, float velX, float velY, Weapon:
 
 bagel::Entity createTerrain(float x, float y) {
     bagel::Entity entity = bagel::Entity::create();
-
     Position position{x, y};
     entity.add(position);
 
@@ -142,12 +141,11 @@ bagel::Entity createTerrain(float x, float y) {
 
 bagel::Entity createCollectable(float x, float y, Collectable::Type type, int value) {
     bagel::Entity entity = bagel::Entity::create();
-
     Position position{x, y};
     Collectable collectable{type, value};
+
     entity.addAll(position, collectable);
 
     return entity;
 }
-
 }

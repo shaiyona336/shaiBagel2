@@ -18,26 +18,17 @@ const int LEFT_MOVE_LENGTH = -10.0f;
 const int RIGHT_MOVE_LENGTH = 10.0f;
 const int FLOOR_HEIGHT = 500;
 
-struct GameObject {
+
+struct Worm {
     float x, y;
     float vx = 0, vy = 0;
     SDL_FRect rect;
-
-    GameObject(float posX, float posY, float width, float height): x(posX), y(posY), rect{posX, posY, width, height} {}
-
-    void updateRect() {
-        rect.x = x;
-        rect.y = y;
-    }
-};
-
-struct Worm : GameObject {
     int health = 100;
 
-    Worm(float posX, float posY)
-        : GameObject(posX, posY, WORM_SIZE, WORM_SIZE) {}
+    Worm(float posX, float posY): x(posX), y(posY), rect{posX, posY, WORM_SIZE, WORM_SIZE} {}
 
-    void move(float dx) {
+    void move(float dx)
+    {
         x += dx;
         //if out of boundery, return worm to screen
         if (x < 0)
@@ -49,7 +40,13 @@ struct Worm : GameObject {
             x = SCREEN_WIDTH - WORM_SIZE;
         }
         updateRect();
+
     }
+        void updateRect() {
+            rect.x = x;
+            rect.y = y;
+        }
+
 
     void jump() {
         if (vy == 0) { //can only jump if worm on ground

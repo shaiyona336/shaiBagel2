@@ -1,6 +1,6 @@
 /**
  * @file worms.h
- * @brief A simplified Worms-like game implementation using ECS architecture
+ * @brief worms demo
  */
  #pragma once
 
@@ -94,7 +94,6 @@
 
  /**
   * @brief component for collectable items
-  * Represents an item that can be collected by players.
   * sparse component for storing information on collectable items
   * store kind of item to pick, and value if it is health or ammo
   */
